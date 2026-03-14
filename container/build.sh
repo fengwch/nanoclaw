@@ -1,6 +1,9 @@
 #!/bin/bash
 # Build the NanoClaw agent container image
 
+# 安装时docker的镜像使用无重定义的、无代理的， 而使用本机的全局代理
+
+
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

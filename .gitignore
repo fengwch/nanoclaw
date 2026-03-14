@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .npm-cache/
+dashscope_gateway/nanoclaw_env/
 # Build output
 dist/
 
