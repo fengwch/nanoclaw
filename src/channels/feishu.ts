@@ -3,7 +3,12 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import { ASSISTANT_NAME } from '../config.js';
 import { readEnvFile } from '../env.js';
 import { logger } from '../logger.js';
-import { Channel, OnInboundMessage, OnChatMetadata, RegisteredGroup } from '../types.js';
+import {
+  Channel,
+  OnInboundMessage,
+  OnChatMetadata,
+  RegisteredGroup,
+} from '../types.js';
 import { registerChannel } from './registry.js';
 
 export interface FeishuChannelOpts {
@@ -41,7 +46,10 @@ export class FeishuChannel implements Channel {
       this.botOpenId = (resp as any)?.bot?.open_id;
       logger.info({ botOpenId: this.botOpenId }, 'Feishu bot info fetched');
     } catch (err) {
-      logger.warn({ err }, 'Failed to fetch Feishu bot info, bot message detection may not work');
+      logger.warn(
+        { err },
+        'Failed to fetch Feishu bot info, bot message detection may not work',
+      );
     }
 
     const wsClient = new lark.WSClient({
@@ -68,7 +76,11 @@ export class FeishuChannel implements Channel {
     if (!msg) return;
 
     // Skip bot's own messages
-    if (sender?.sender_id?.open_id && sender.sender_id.open_id === this.botOpenId) return;
+    if (
+      sender?.sender_id?.open_id &&
+      sender.sender_id.open_id === this.botOpenId
+    )
+      return;
 
     const chatId = msg.chat_id;
     if (!chatId) return;
@@ -146,7 +158,9 @@ registerChannel('feishu', (opts) => {
   const appSecret = env['FEISHU_APP_SECRET'];
 
   if (!appId || !appSecret) {
-    logger.debug('Feishu not configured (FEISHU_APP_ID/FEISHU_APP_SECRET missing), skipping');
+    logger.debug(
+      'Feishu not configured (FEISHU_APP_ID/FEISHU_APP_SECRET missing), skipping',
+    );
     return null;
   }
 
