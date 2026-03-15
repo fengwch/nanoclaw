@@ -176,6 +176,7 @@ NanoClaw 采用 **Host 单进程 + 按群组容器** 的架构：
 - **多群组**：有限并行，由 `MAX_CONCURRENT_CONTAINERS` 控制（默认 5）。
 - **单群组**：串行，同一群组同一时刻仅一个容器，消息按序经 stdin 喂入。
 - **容器关闭**：空闲 `IDLE_TIMEOUT`（默认 30 分钟）无新消息/无新结果后，Host 写 `_close`，容器主动退出；另有硬超时防止卡死。（[VERIFIED_IMPLEMENTATION_PLAN.md](VERIFIED_IMPLEMENTATION_PLAN.md) 4.7、4.8。）
+![并发与容器生命周期](./imgs/agents-1v1-群组-容器.png)  
 
 ---
 
@@ -224,9 +225,7 @@ NanoClaw 采用 **Host 单进程 + 按群组容器** 的架构：
 
 - [SPEC.md](../SPEC.md) — 架构、Channel、配置、安全
 - [VERIFIED_IMPLEMENTATION_PLAN.md](VERIFIED_IMPLEMENTATION_PLAN.md) — 已验证能力与操作步骤
-- [1.md](1.md) — 需求分析与搭建要点
 - [ENTERPRISE_EXTENSION_REFINEMENTS.md](ENTERPRISE_EXTENSION_REFINEMENTS.md) — 记忆/权限/意图/Token 表述修正
 - [ENTERPRISE_FEASIBLE_PLAN.md](ENTERPRISE_FEASIBLE_PLAN.md) — 分阶段可行方案
 - [SECURITY.md](../SECURITY.md) — 安全模型与边界
 
-若存在 `docs/infos/imgs/` 下截图（如飞书对话、对接内部系统-工作流等），可在第四节相应位置插入并配简短说明。
