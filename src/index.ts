@@ -200,11 +200,11 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   const resetIdleTimer = () => {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-      logger.debug(
-        { group: group.name },
-        'Idle timeout, closing container stdin',
+      logger.info(
+        { group: group.name, chatJid, idleTimeoutMs: IDLE_TIMEOUT },
+        'Idle timeout reached, closing container stdin (reason: idle_timeout)',
       );
-      queue.closeStdin(chatJid);
+      queue.closeStdin(chatJid, 'idle_timeout');
     }, IDLE_TIMEOUT);
   };
 
@@ -406,7 +406,13 @@ async function startMessageLoop(): Promise<void> {
                 (m.is_from_me ||
                   isTriggerAllowed(chatJid, m.sender, allowlistCfg)),
             );
-            if (!hasTrigger) continue;
+            if (!hasTrigger) {
+              logger.debug(
+                { chatJid, sample: groupMessages[0]?.content?.slice(0, 80), triggerPattern: `@${ASSISTANT_NAME}` },
+                'Skip: no trigger in messages (non-main group)',
+              );
+              continue;
+            }
           }
 
           // Pull all messages since lastAgentTimestamp so non-trigger

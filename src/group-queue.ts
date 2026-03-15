@@ -105,7 +105,11 @@ export class GroupQueue {
     if (state.active) {
       state.pendingTasks.push({ id: taskId, groupJid, fn });
       if (state.idleWaiting) {
-        this.closeStdin(groupJid);
+        logger.info(
+          { groupJid, taskId },
+          'Preempting idle container for new task (reason: idle_preempt_new_task)',
+        );
+        this.closeStdin(groupJid, 'idle_preempt_new_task');
       }
       logger.debug({ groupJid, taskId }, 'Container active, task queued');
       return;
@@ -149,7 +153,11 @@ export class GroupQueue {
     const state = this.getGroup(groupJid);
     state.idleWaiting = true;
     if (state.pendingTasks.length > 0) {
-      this.closeStdin(groupJid);
+      logger.info(
+        { groupJid, pendingCount: state.pendingTasks.length },
+        'Container idle but pending tasks exist, closing (reason: idle_preempt_pending_tasks)',
+      );
+      this.closeStdin(groupJid, 'idle_preempt_pending_tasks');
     }
   }
 
@@ -179,17 +187,28 @@ export class GroupQueue {
 
   /**
    * Signal the active container to wind down by writing a close sentinel.
+   * @param reason - Caller-defined reason for tracing (e.g. idle_timeout, task_done, idle_preempt).
    */
-  closeStdin(groupJid: string): void {
+  closeStdin(groupJid: string, reason?: string): void {
     const state = this.getGroup(groupJid);
-    if (!state.active || !state.groupFolder) return;
+    if (!state.active || !state.groupFolder) {
+      logger.debug(
+        { groupJid, reason, active: state.active, groupFolder: state.groupFolder },
+        'closeStdin skipped (no active container or folder)',
+      );
+      return;
+    }
 
     const inputDir = path.join(DATA_DIR, 'ipc', state.groupFolder, 'input');
     try {
       fs.mkdirSync(inputDir, { recursive: true });
       fs.writeFileSync(path.join(inputDir, '_close'), '');
-    } catch {
-      // ignore
+      logger.info(
+        { groupJid, groupFolder: state.groupFolder, reason: reason ?? 'unknown' },
+        'Container close requested: wrote _close sentinel (container will exit)',
+      );
+    } catch (err) {
+      logger.warn({ groupJid, reason, err }, 'Failed to write _close sentinel');
     }
   }
 
