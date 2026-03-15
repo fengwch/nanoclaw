@@ -10,6 +10,10 @@ import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { CronExpressionParser } from 'cron-parser';
+import { createHttpsGet, fetchWeatherForCity } from './weather.js';
+
+const WEATHER_FETCH_TIMEOUT_MS = 12_000;
+const httpsGet = createHttpsGet(WEATHER_FETCH_TIMEOUT_MS);
 
 const IPC_DIR = '/workspace/ipc';
 const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
@@ -295,6 +299,15 @@ server.tool(
 
     return { content: [{ type: 'text' as const, text: `Task ${args.task_id} update requested.` }] };
   },
+);
+
+server.tool(
+  'get_weather',
+  'Get current weather for a city or location. Uses Open-Meteo (free, no API key). Returns temperature (C), conditions, wind speed. Use when user asks about weather, temperature, or forecast for a place.',
+  {
+    city: z.string().describe('City or location name (e.g. "Beijing", "上海", "New York")'),
+  },
+  async (args) => fetchWeatherForCity(args.city, httpsGet),
 );
 
 server.tool(
