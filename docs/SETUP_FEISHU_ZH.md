@@ -95,9 +95,10 @@ npm run build
 
 1. **事件订阅** → 启用**长连接（WebSocket）模式**（非 Webhook）
 2. **添加事件**：`im.message.receive_v1`（接收消息）
-3. **权限**：
-   - `im:message:send_as_bot`（以机器人身份发送）
-   - `im:message`（读取消息）
+3. **权限**（缺一不可）：
+   - **以应用身份发消息**（`im:message:send_as_bot`）
+   - **获取群组中所有消息（敏感权限）**：必须开通，否则群内消息不会推送给机器人（包括 @ 以外的消息）；开通后需重新发布应用。
+   - **读取用户发给机器人的单聊消息**：若需要处理单聊，也需开通。
 4. **发布应用**（草稿状态不接收事件）
 
 在 `.env` 中配置：
@@ -161,6 +162,33 @@ VALUES ('{chat_id}@feishu', 'feishu', 'feishu', '@Claude', datetime('now'), 0);
 ```
 
 然后重启服务使注册生效。
+
+---
+
+## 群里发 @Andy 无回复排查
+
+在已注册的飞书群发了 **@Andy 你好** 却没有任何回复时，按下面顺序查。
+
+1. **看日志是否收到该条消息**  
+   运行 `tail -f logs/nanoclaw.log`，在群里发一条 **@Andy 你好**：
+   - **没有**出现 `Feishu message received`（且带该群的 `chatId`）→ 飞书没有把消息推给机器人。检查：机器人是否在该群、应用权限是否包含「获取群组中所有消息」或至少「获取用户 @ 机器人的消息」、事件订阅是否为长连接且含 `im.message.receive_v1`。
+   - **有** `Feishu message received` 但接着出现 `Feishu message from unregistered group` → 该群在收到消息时**不在**已注册列表里，消息不会写库、也不会进 Agent。处理：确认该群已在 `registered_groups` 中且 **folder 合法**（仅英文/数字/下划线/连字符），然后**重启 NanoClaw** 再发一次。
+
+2. **确认已注册且 folder 合法**  
+   ```bash
+   sqlite3 store/messages.db "SELECT jid, name, folder, trigger_pattern FROM registered_groups WHERE jid LIKE '%@feishu';"
+   ```  
+   确认你发消息的那个群的 `jid` 在表里，且 `folder` 无中文（否则启动时会 `Skipping registered group with invalid folder`，该群不会加载）。触发词需与 `.env` 里 `ASSISTANT_NAME` 一致（如 `@Andy`）。
+
+3. **确认触发词一致**  
+   `.env` 里若为 `ASSISTANT_NAME=Andy`，则只有内容匹配 **@Andy**（不区分大小写）才会进容器。若你设成了别的名字（如 `NanoClaw助手`），群里要发 **@NanoClaw助手 你好**，并且 `registered_groups` 里该群的 `trigger_pattern` 也要改成 `@NanoClaw助手`。
+
+4. **看是否被「无触发词」跳过**  
+   若消息已收、群已注册，但仍无回复，可能是本轮被当作「无触发词」跳过。用 debug 看一条：  
+   `LOG_LEVEL=debug npm run dev`，再在群里发 **@Andy 你好**。若出现 `Skip: no trigger in messages (non-main group)`，说明内容没匹配到触发词（检查是否真的带了 `@Andy`、和 `ASSISTANT_NAME` 一致）。
+
+5. **看是否有新消息与容器**  
+   若日志里有 `New messages` 且没有 `Skip: no trigger`，应会接着出现 `Spawning container agent` 或 `Piped messages to active container`。若没有，看是否有报错或并发满（`MAX_CONCURRENT_CONTAINERS`）。
 
 ---
 

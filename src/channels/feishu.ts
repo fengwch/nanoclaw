@@ -60,50 +60,122 @@ export class FeishuChannel implements Channel {
 
     const eventDispatcher = new lark.EventDispatcher({}).register({
       'im.message.receive_v1': async (data: any) => {
+        logger.info(
+          {
+            payloadKeys: data ? Object.keys(data) : [],
+            hasMessage: !!(data?.message ?? data?.event?.message),
+            hasEvent: !!data?.event,
+            eventKeys: data?.event ? Object.keys(data.event) : [],
+          },
+          'Feishu event im.message.receive_v1 received',
+        );
         await this.handleMessage(data);
       },
     });
 
     wsClient.start({ eventDispatcher });
     this.connected = true;
-    logger.info('Connected to Feishu via WebSocket');
+    const registeredCount = Object.keys(this.opts.registeredGroups()).length;
+    logger.info(
+      { appIdSuffix: appId?.slice(-4), registeredGroupsCount: registeredCount },
+      'Feishu WebSocket connected, waiting for im.message.receive_v1',
+    );
   }
 
   private async handleMessage(data: any): Promise<void> {
     // SDK may pass data as {event: {message, sender}} or directly as {message, sender}
     const msg = data?.message || data?.event?.message;
     const sender = data?.sender || data?.event?.sender;
-    if (!msg) return;
+
+    if (!msg) {
+      logger.info(
+        {
+          payloadKeys: data ? Object.keys(data) : [],
+          eventKeys: data?.event ? Object.keys(data.event) : [],
+          eventType: data?.event?.type ?? data?.type ?? data?.schema,
+          sample: data ? JSON.stringify(data).slice(0, 300) : '',
+        },
+        'Feishu handleMessage: no message in payload (wrong shape or other event?), skip',
+      );
+      return;
+    }
+
+    const chatId = msg.chat_id;
+    const messageType = msg.message_type;
+    const chatType = msg.chat_type;
+    logger.info(
+      { chatId, messageType, chatType, messageId: msg.message_id },
+      'Feishu message received',
+    );
 
     // Skip bot's own messages
     if (
       sender?.sender_id?.open_id &&
       sender.sender_id.open_id === this.botOpenId
-    )
+    ) {
+      logger.info(
+        {
+          chatId,
+          senderOpenId: sender.sender_id.open_id,
+          botOpenId: this.botOpenId,
+        },
+        'Feishu handleMessage: skip bot own message',
+      );
       return;
+    }
 
-    const chatId = msg.chat_id;
-    if (!chatId) return;
+    if (!chatId) {
+      logger.warn(
+        { messageId: msg.message_id, msgKeys: msg ? Object.keys(msg) : [] },
+        'Feishu handleMessage: no chat_id in message, skip',
+      );
+      return;
+    }
 
-    // Only handle text messages
-    if (msg.message_type !== 'text') return;
+    const chatJid = `${chatId}@feishu`;
+    const timestamp = new Date(Number(msg.create_time)).toISOString();
+    const isGroup = chatType === 'group';
+
+    // Always persist chat metadata so unregistered groups appear in chats table (for manual registration)
+    this.opts.onChatMetadata(chatJid, timestamp, undefined, 'feishu', isGroup);
+    logger.info(
+      { chatJid, isGroup },
+      'Feishu chat metadata stored (chats table)',
+    );
+
+    // Only handle text messages for delivery
+    if (messageType !== 'text') {
+      logger.info(
+        { chatJid, messageType, chatType },
+        'Feishu handleMessage: non-text message, skip delivery (chat metadata already stored)',
+      );
+      return;
+    }
 
     let content = '';
     try {
       const parsed = JSON.parse(msg.content || '{}');
       content = parsed.text || '';
-    } catch {
+    } catch (e) {
+      logger.warn(
+        {
+          chatJid,
+          contentPreview: String(msg.content).slice(0, 100),
+          err: (e as Error).message,
+        },
+        'Feishu handleMessage: failed to parse content JSON, skip',
+      );
       return;
     }
-    if (!content) return;
+    if (!content) {
+      logger.info(
+        { chatJid },
+        'Feishu handleMessage: empty text content after parse, skip',
+      );
+      return;
+    }
 
-    const chatJid = `${chatId}@feishu`;
-    const timestamp = new Date(Number(msg.create_time)).toISOString();
     const senderName = sender?.sender_id?.open_id || 'unknown';
-
-    // Notify chat metadata
-    const isGroup = msg.chat_type === 'group';
-    this.opts.onChatMetadata(chatJid, timestamp, undefined, 'feishu', isGroup);
 
     // Deliver message if group is registered
     const groups = this.opts.registeredGroups();
@@ -118,6 +190,17 @@ export class FeishuChannel implements Channel {
         is_from_me: false,
         is_bot_message: false,
       });
+    } else {
+      const registeredJids = Object.keys(this.opts.registeredGroups());
+      logger.info(
+        {
+          chatJid,
+          contentLen: content.length,
+          registeredCount: registeredJids.length,
+          registeredJidsSample: registeredJids.slice(0, 3),
+        },
+        'Feishu message from unregistered group (not delivered to agent)',
+      );
     }
   }
 
