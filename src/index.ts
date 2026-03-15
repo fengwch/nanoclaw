@@ -408,7 +408,11 @@ async function startMessageLoop(): Promise<void> {
             );
             if (!hasTrigger) {
               logger.debug(
-                { chatJid, sample: groupMessages[0]?.content?.slice(0, 80), triggerPattern: `@${ASSISTANT_NAME}` },
+                {
+                  chatJid,
+                  sample: groupMessages[0]?.content?.slice(0, 80),
+                  triggerPattern: `@${ASSISTANT_NAME}`,
+                },
                 'Skip: no trigger in messages (non-main group)',
               );
               continue;

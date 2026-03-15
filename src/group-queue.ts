@@ -193,7 +193,12 @@ export class GroupQueue {
     const state = this.getGroup(groupJid);
     if (!state.active || !state.groupFolder) {
       logger.debug(
-        { groupJid, reason, active: state.active, groupFolder: state.groupFolder },
+        {
+          groupJid,
+          reason,
+          active: state.active,
+          groupFolder: state.groupFolder,
+        },
         'closeStdin skipped (no active container or folder)',
       );
       return;
@@ -204,7 +209,11 @@ export class GroupQueue {
       fs.mkdirSync(inputDir, { recursive: true });
       fs.writeFileSync(path.join(inputDir, '_close'), '');
       logger.info(
-        { groupJid, groupFolder: state.groupFolder, reason: reason ?? 'unknown' },
+        {
+          groupJid,
+          groupFolder: state.groupFolder,
+          reason: reason ?? 'unknown',
+        },
         'Container close requested: wrote _close sentinel (container will exit)',
       );
     } catch (err) {
