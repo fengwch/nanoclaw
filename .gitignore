@@ -22,6 +22,7 @@ groups/global/*
 # Secrets
 *.keys.json
 .env
+k8s/secret.yaml
 
 # Temp files
 .tmp-*

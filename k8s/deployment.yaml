@@ -1,0 +1,85 @@
+# NanoClaw Host 进程：需挂载节点 Docker 套接字以便启动 Agent 容器
+# 前置：已创建 Secret nanoclaw-secret、ConfigMap nanoclaw-config、PVC nanoclaw-data
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nanoclaw
+  namespace: nanoclaw
+  labels:
+    app: nanoclaw
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nanoclaw
+  template:
+    metadata:
+      labels:
+        app: nanoclaw
+    spec:
+      initContainers:
+        - name: init-data-dirs
+          image: busybox:1.36
+          command: ["sh", "-c", "mkdir -p /data/store /data/data /data/logs"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      # 若节点无 Docker 套接字，可改用 containerd 或集群内 Agent Runner 方案（见文档）
+      containers:
+        - name: nanoclaw
+          image: nanoclaw-host:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /app
+          command: ["node", "dist/index.js"]
+          ports:
+            - name: credential-proxy
+              containerPort: 3001
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: nanoclaw-config
+            - secretRef:
+                name: nanoclaw-secret
+          env:
+            # 让 Agent 容器能访问本 Pod 的凭证代理（Downward API）
+            - name: CONTAINER_HOST_GATEWAY_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # 凭证代理需监听所有接口，以便同节点上的 Agent 容器访问
+            - name: CREDENTIAL_PROXY_HOST
+              value: "0.0.0.0"
+            # Agent 容器使用的镜像（需可被节点拉取）
+            - name: CONTAINER_IMAGE
+              value: "nanoclaw-agent:latest"
+          volumeMounts:
+            - name: data
+              mountPath: /app/store
+              subPath: store
+            - name: data
+              mountPath: /app/data
+              subPath: data
+            - name: data
+              mountPath: /app/logs
+              subPath: logs
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nanoclaw-data
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+      # 若需固定到带 Docker 的节点，可加 nodeSelector
+      # nodeSelector:
+      #   docker: "true"

@@ -1,0 +1,20 @@
+# 非敏感配置，敏感信息请放 Secret
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nanoclaw-config
+  namespace: nanoclaw
+data:
+  # 可选：覆盖默认值
+  ASSISTANT_NAME: "Andy"
+  CONTAINER_RUNTIME: "docker"
+  CREDENTIAL_PROXY_PORT: "3001"
+  MAX_CONCURRENT_CONTAINERS: "5"
+  IDLE_TIMEOUT: "1800000"
+  CONTAINER_TIMEOUT: "1800000"
+  NODE_ENV: "production"
+  # 模型端点（若走集群内网关可改为 Service 地址）
+  ANTHROPIC_BASE_URL: "http://127.0.0.1:8005"
+  # 飞书等渠道 App ID（非密钥）
+  FEISHU_APP_ID: "cli_xxxxxxxxxx"
+  FEISHU_BOT_NAME: "NanoClaw助手"

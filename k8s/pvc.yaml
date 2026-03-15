@@ -1,0 +1,14 @@
+# 持久化存储：store（SQLite）、data（sessions、ipc）、groups、logs
+# 按需调整 storageClassName 与 size
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanoclaw-data
+  namespace: nanoclaw
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # storageClassName: standard   # 按集群实际 StorageClass 修改

@@ -40,8 +40,20 @@ function detectProxyBindHost(): string {
   return '0.0.0.0';
 }
 
+/**
+ * When set (e.g. to the NanoClaw pod IP in Kubernetes), agent containers
+ * will resolve host.docker.internal to this IP. Required in K8s so agents
+ * can reach the credential proxy running in the NanoClaw pod.
+ */
+const CONTAINER_HOST_GATEWAY_IP = process.env.CONTAINER_HOST_GATEWAY_IP;
+
 /** CLI args needed for the container to resolve the host gateway. */
 export function hostGatewayArgs(): string[] {
+  if (CONTAINER_HOST_GATEWAY_IP) {
+    return [
+      `--add-host=host.docker.internal:${CONTAINER_HOST_GATEWAY_IP}`,
+    ];
+  }
   // On Linux, host.docker.internal isn't built-in — add it explicitly
   if (os.platform() === 'linux') {
     return ['--add-host=host.docker.internal:host-gateway'];
