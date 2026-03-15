@@ -1,0 +1,33 @@
+{
+  "name": "approval-system",
+  "description": "审批流程技能：发起请假、报销、采购等审批，并查询审批状态。",
+  "triggers": [
+    "请假",
+    "报销",
+    "采购申请",
+    "审批",
+    "提交审批",
+    "查审批",
+    "审批状态"
+  ],
+  "approval_types": {
+    "leave": {
+      "label": "请假",
+      "params": ["reason", "days", "start_date", "end_date"],
+      "required": ["reason", "days"]
+    },
+    "expense": {
+      "label": "报销",
+      "params": ["amount", "reason", "category", "attachments"],
+      "required": ["amount", "reason"]
+    },
+    "purchase": {
+      "label": "采购申请",
+      "params": ["title", "amount", "reason", "items"],
+      "required": ["title", "amount", "reason"]
+    }
+  },
+  "permission_required": true,
+  "oa_base_url_env": "OA_BASE_URL",
+  "oa_token_env": "OA_API_TOKEN"
+}
